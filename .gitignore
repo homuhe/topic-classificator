@@ -1,7 +1,6 @@
 # use glob syntax.
 syntax: glob
 *.ser
-*.class
 *~
 *.bak
 #*.off
@@ -38,4 +37,4 @@ build.log
 #  ^\.pc/
 
 #SHITTY output not in target directory
-build.log
+/20news-18828/
