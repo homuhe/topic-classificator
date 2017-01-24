@@ -18,7 +18,9 @@ object TopicClassificator {
 
 
   // map from class label (int) to sortedMap from feature(int) to tfidf (double)
-  var trainingMatrix = mutable.HashMap[Int, scala.collection.immutable.SortedMap[Int, Double]]()
+//  var trainingMatrix = mutable.HashMap[Int, scala.collection.immutable.SortedMap[Int, Double]]()
+
+  var trainingMatrix = mutable.HashMap[Int, List[List[(Int, Double)]]]()
 
   //  var inverted = mutable.HashMap[String, mutable.HashMap[Int, Int]]()
   var inverted = mutable.HashMap[Int, mutable.HashMap[String, Int]]()
@@ -104,10 +106,12 @@ object TopicClassificator {
 
     println(trainingMatrix.size)
 
-//    for((k,v) <- trainingMatrix){
-//      println(k)
-//      println(v.size)
+//    for((label, list) <- trainingMatrix){
+//      println(label)
+//      println(list)
 //    }
+
+    println(trainingMatrix(1)(0))
 
     // some classes share documents obviously
     //    var count = 0
@@ -123,25 +127,29 @@ object TopicClassificator {
   def generateTable = {
 
     for((label, docSet) <- label2Docs){
-
       val labelNum = newsgroupMap(label)
       // for each label class we initialize
-      trainingMatrix.put(labelNum, scala.collection.immutable.SortedMap[Int, Double]())
+//      trainingMatrix.put(labelNum, scala.collection.immutable.SortedMap[Int, Double]())
 
+
+      val tmp = List[List[(Int, Double)]]()
+      //initialize
+      trainingMatrix.put(labelNum, tmp)
+
+      // going through the relevent docids for that class
       for(docid <- docSet){
+        var featureList = List[(Int, Double)]()
+
         for((term, tf) <- inverted(docid)){
 
           val indexNum = indexMap(term)
           val value = tf * get_idf(term)
 
-          if(!trainingMatrix(labelNum).contains(indexNum)){
-            trainingMatrix(labelNum) = trainingMatrix(labelNum) + (indexNum -> value)
-
-          }else{
-
-          }
+          featureList = featureList :+ (indexNum, value)
 
         }
+        trainingMatrix(labelNum) = trainingMatrix(labelNum) :+ featureList.sortBy(_._1)
+
       }
     }
 
