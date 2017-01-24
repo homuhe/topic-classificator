@@ -18,7 +18,7 @@ object TopicClassificator {
 
 
   // map from class label (int) to sortedMap from feature(int) to tfidf (double)
-//  var trainingMatrix = mutable.HashMap[Int, scala.collection.immutable.SortedMap[Int, Double]]()
+  //  var trainingMatrix = mutable.HashMap[Int, scala.collection.immutable.SortedMap[Int, Double]]()
 
   var trainingMatrix = mutable.HashMap[Int, List[List[(Int, Double)]]]()
 
@@ -102,26 +102,45 @@ object TopicClassificator {
 
 
 
+    //    println("0 was -Infinity for document: " + label2Docs(inversedNewsgroupMap(1))(0) +  " and " +  inversedIndexMap(0))
+
+
+
+    fill_dfMap
+    println(docFreqMap)
+
+//    println("subject " + get_idf("subject"))
+//    println("when " + get_idf("when"))
+//    println("nude " + get_idf("nude"))
+//    println("of " + get_idf("of"))
+
     generateTable
 
-    println(trainingMatrix.size)
+        println(trainingMatrix(1)(0))
+//    trainingMatrix.foreach(entry => println(entry._2))
 
-//    for((label, list) <- trainingMatrix){
-//      println(label)
-//      println(list)
-//    }
 
-    println(trainingMatrix(1)(0))
 
-    // some classes share documents obviously
-    //    var count = 0
-    //    for(label <- label2Docs.keySet){
-    //      count +=  label2Docs(label).size
-    //      println(label + " " +  label2Docs(label).intersect(label2Docs("alt.atheism")))
-    //    }
-    //    println(count)
   }
 
+  def writeTable(output: String) = {
+
+    // toDo
+
+  }
+
+  def fill_dfMap = {
+    //        // keep track of the occurences of a term in the total document collection
+    //        // and update the state
+    indexMap.foreach(entry => docFreqMap.put(entry._1, 0))
+
+    for((docid, vectors) <- inverted){
+      for(term <- vectors.keySet){
+        docFreqMap(term) = docFreqMap(term) +1
+      }
+    }
+
+  }
 
 
   def generateTable = {
@@ -129,7 +148,7 @@ object TopicClassificator {
     for((label, docSet) <- label2Docs){
       val labelNum = newsgroupMap(label)
       // for each label class we initialize
-//      trainingMatrix.put(labelNum, scala.collection.immutable.SortedMap[Int, Double]())
+      //      trainingMatrix.put(labelNum, scala.collection.immutable.SortedMap[Int, Double]())
 
 
       val tmp = List[List[(Int, Double)]]()
@@ -138,15 +157,15 @@ object TopicClassificator {
 
       // going through the relevent docids for that class
       for(docid <- docSet){
+        //      for(docid <- label2Docs(inversedNewsgroupMap(1))){
+
         var featureList = List[(Int, Double)]()
 
         for((term, tf) <- inverted(docid)){
 
           val indexNum = indexMap(term)
           val value = tf * get_idf(term)
-
           featureList = featureList :+ (indexNum, value)
-
         }
         trainingMatrix(labelNum) = trainingMatrix(labelNum) :+ featureList.sortBy(_._1)
 
@@ -172,7 +191,6 @@ object TopicClassificator {
   def get_idf(term: String): Double = {
     val N = inverted.size
     val n_i = docFreqMap(term)
-
     math.log(N/n_i)
   }
 
@@ -202,16 +220,6 @@ object TopicClassificator {
           indexMap = indexMap + (term -> indexNum)
           indexNum += 1
         } // else do nothing, since it is already contained and has an indexNum
-
-
-
-        // keep track of the occurences of a term in the total document collection
-        // and update the state
-        if(!docFreqMap.contains(term)){
-          docFreqMap.put(term, 1)
-        }else{
-          docFreqMap(term) = docFreqMap(term) +1
-        }
 
 
         val term_tfpairs = mutable.HashMap[String, Int]()
