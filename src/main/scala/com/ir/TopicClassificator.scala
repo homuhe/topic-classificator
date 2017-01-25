@@ -1,7 +1,6 @@
 package com.ir
 
 import java.io.{File, PrintWriter}
-
 import scala.collection.mutable
 import scala.io.Source
 
@@ -30,7 +29,7 @@ object TopicClassificator {
 
   /**
     * Main Method
-    * @param args
+    * @param args Input directory & Output file
     */
   def main(args: Array[String]): Unit = {
 
@@ -62,7 +61,6 @@ object TopicClassificator {
     fill_dfMap()
     generateTable()
     writeTable(output)
-
   }
 
 
@@ -77,7 +75,6 @@ object TopicClassificator {
     folders
   }
 
-
   /**
     * Creates a folder to Integer mapping
     * @param folder of input directory
@@ -89,18 +86,16 @@ object TopicClassificator {
     label
   }
 
-
   def label2docs(f: File, label: String): Int = {
 
     val docID = f.getName.replace(".conll", "").toInt
 
-    //remember which documents correspond to which label
+    //remembering which documents correspond to which label
     if(!label2Docs.contains(label))
       label2Docs.put(label, Set(docID))
     else label2Docs(label) += docID
     docID
   }
-
 
   /**
     * Reads input file and separates at tabs
@@ -114,9 +109,8 @@ object TopicClassificator {
     lines
   }
 
-
   /**
-    *
+    * Calculating df score
     */
   def fill_dfMap(): Unit = {
     //keeping track of term occurrences all documents
@@ -127,7 +121,6 @@ object TopicClassificator {
         docFreqMap(term) = docFreqMap(term) +1
     }
   }
-
 
   /**
     * Returns IDF score of a given term
@@ -140,48 +133,43 @@ object TopicClassificator {
     math.log(N/n_i)
   }
 
-
   /**
     * Fills a HashMap which maps type of word to document identifier.
     * @param lines: Iterator over an array of strings
     */
   def createIndices(lines: Iterator[Array[String]], doc_id: Int, label: String): Unit = {
 
-    for (line <- lines) {
-      if (line.length > 1) {
-        val term = line(2)
+    for (line <- lines if line.length > 1) {
+      val term = line(2)
 
-        // if indexMap is missing that term, add it
-        if(!indexMap.contains(term)){
-          indexMap = indexMap + (term -> indexNum)
-          indexNum += 1
-        } // else do nothing, since it is already contained and has an indexNum
+      // if indexMap is missing that term, add it
+      if(!indexMap.contains(term)) {
+        indexMap = indexMap + (term -> indexNum)
+        indexNum += 1
+      } // else do nothing, since it is already contained and has an indexNum
 
+      val term_tfpairs = mutable.HashMap[String, Int]()
 
-        val term_tfpairs = mutable.HashMap[String, Int]()
-
-        //create non existing term entry
-        if (!inverted.contains(doc_id)) {
-          term_tfpairs.put(term ,1)
-          inverted += doc_id -> term_tfpairs
+      //create non existing term entry
+      if (!inverted.contains(doc_id)) {
+        term_tfpairs.put(term , 1)
+        inverted += doc_id -> term_tfpairs
+      }
+      else {
+        // add it to existing term, but non-existing docid
+        if (!inverted(doc_id).contains(term)) {
+          inverted(doc_id).put(term, 1)
         }
-        else{
-          // add it to existing term, but non-existing docid
-          if (!inverted(doc_id).contains(term)){
-            inverted(doc_id).put(term, 1)
-          }else{
-            // increase tf of existing term for existing docid
-            inverted(doc_id)(term) = inverted(doc_id)(term) + 1
-          }
+        else {
+          // increase tf of existing term for existing docid
+          inverted(doc_id)(term) = inverted(doc_id)(term) + 1
         }
-
       }
     }
   }
 
-
   /**
-    *
+    * Generates matrix with feature vectors
     */
   def generateTable(): Unit = {
 
@@ -189,8 +177,6 @@ object TopicClassificator {
       val labelNum = newsgroupMap(label)
       // for each label class we initialize
       //      trainingMatrix.put(labelNum, scala.collection.immutable.SortedMap[Int, Double]())
-
-
       val tmp = List[List[(Int, Double)]]()
       //initialize
       trainingMatrix.put(labelNum, tmp)
@@ -207,16 +193,14 @@ object TopicClassificator {
           featureList = featureList :+ (indexNum, value)
         }
         trainingMatrix(labelNum) = trainingMatrix(labelNum) :+ featureList.sortBy(_._1)
-
       }
     }
 
   }
 
-
   /**
-    *
-    * @param output
+    * Writes trainingMatrix in output file
+    * @param output file
     */
   def writeTable(output: String): Unit = {
 
@@ -240,16 +224,13 @@ object TopicClassificator {
     println("Done!")
   }
 
-
   /**
     * Help function for correct usage
     */
   def help() = {
     println("Usage: ./wildcard arg1 arg2")
-    println("\t\targ1: INPUT  - filename of a text file containing a word list")
-    println("\t\targ2: OUTPUT - filename of a text file containing a word list")
+    println("\t\targ1: INPUT  - directory with files to train")
+    println("\t\targ2: OUTPUT - file in liblinear format for SVM training")
     sys.exit()
   }
-
-
 }
