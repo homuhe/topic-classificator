@@ -24,7 +24,7 @@ object TopicClassificator {
   val label2Docs = mutable.HashMap[String, Set[Int]]()                    // label       to Set of DocIDs
   var docFreqMap = mutable.HashMap[String, Int]()
   var labelNum = 1
-  var indexNum = 0
+  var indexNum = 1
 
 
   /**
