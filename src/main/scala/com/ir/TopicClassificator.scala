@@ -1,7 +1,6 @@
 package com.ir
 
-import java.io.File
-import java.util
+import java.io.{File, PrintWriter}
 
 import scala.collection.mutable
 import scala.io.Source
@@ -16,183 +15,92 @@ import scala.io.Source
 
 object TopicClassificator {
 
-
-  // map from class label (int) to sortedMap from feature(int) to tfidf (double)
-  //  var trainingMatrix = mutable.HashMap[Int, scala.collection.immutable.SortedMap[Int, Double]]()
-
+    //Resulting matrix of feature vectors
+    //trainingMatrix(v)(x)(y)._z: v label number, x doc number, y term-value tuple, z=1 term, z=2 tf-idf
   var trainingMatrix = mutable.HashMap[Int, List[List[(Int, Double)]]]()
 
-  //  var inverted = mutable.HashMap[String, mutable.HashMap[Int, Int]]()
-  var inverted = mutable.HashMap[Int, mutable.HashMap[String, Int]]()
-
+  var newsgroupMap = scala.collection.immutable.SortedMap[String, Int]()  // topic/label to Integer
+  var inverted = mutable.HashMap[Int, mutable.HashMap[String, Int]]()     // docID       to (term, tf)
+  var indexMap = scala.collection.immutable.SortedMap[String, Int]()      // term        to Index
+  val label2Docs = mutable.HashMap[String, Set[Int]]()                    // label       to Set of DocIDs
   var docFreqMap = mutable.HashMap[String, Int]()
-
-  // a map from label class to a Set of docId's
-  val label2Docs = mutable.HashMap[String, Set[Int]]()
-
-  // map from topic/label to corresponding label number required for liblinear
-  var newsgroupMap = scala.collection.immutable.SortedMap[String, Int]()
   var labelNum = 1
-  var inversedIndexMap = scala.collection.immutable.SortedMap[Int, String]()
-
-  // map from word/term to corresponding index number required for liblinear
-  var indexMap = scala.collection.immutable.SortedMap[String, Int]()
   var indexNum = 0
-  var inversedNewsgroupMap = scala.collection.immutable.SortedMap[Int, String]()
+
+
   /**
-    * Main method
+    * Main Method
+    * @param args
     */
   def main(args: Array[String]): Unit = {
-    println("Harambe!")
-    def pwd = System.getProperty("user.dir") //current directory
-    val current_dir = pwd
-    println(current_dir)
-    val folders = new java.io.File(current_dir + "/20news-18828").listFiles
+
+    println("Reading in:")
+
+    var folders = Array[File]()
+    var output = ""
+
+    if (args.length != 2) help()
+    else {
+      folders = read_dir(args(0))
+      output = args(1)
+    }
+
     for (folder <- folders) {
 
-      //test on only one label/topic
-      //    val folder = new java.io.File(current_dir + "/20news-18828/alt.atheism")
+      println(folder)
 
-      val label = folder.getName
-      newsgroupMap = newsgroupMap + (label -> labelNum)
-      labelNum += 1
-
-
+      val label = label2num(folder)
       val files = new java.io.File(folder.toString).listFiles
+
       for (file <- files) {
 
-        // we need the doc_ID to create an invertex Index
-        val docID = file.getName().replace(".conll", "").toInt
-
-
-        //remember which documents correspond to which label
-        if(!label2Docs.contains(label)){
-          label2Docs.put(label, Set(docID))
-        }else{
-          label2Docs(label) += docID
-        }
-
-
+        val docID = label2docs(file, label)
         createIndices(extractLines(file), docID, label)
-
-
-      }
-
-      println(label + " : " + newsgroupMap(label) )
-      println(label2Docs(label).size)
-    }
-
-    inversedIndexMap = inverseIndexMap
-    inversedNewsgroupMap = inverseNewsgroupMap
-
-    println(newsgroupMap.size)
-    //    println(newsgroupMap)
-    println(inversedNewsgroupMap)
-    println(indexMap.size)
-    //    println(indexMap)
-    println(inversedIndexMap)
-
-
-    println(inverted.size)
-
-
-    //    for(term <- indexMap.keySet){
-    //      println(term + " : " + get_idf(term) )
-    //    }
-
-
-
-    //    println("0 was -Infinity for document: " + label2Docs(inversedNewsgroupMap(1))(0) +  " and " +  inversedIndexMap(0))
-
-
-
-    fill_dfMap
-    println(docFreqMap)
-
-//    println("subject " + get_idf("subject"))
-//    println("when " + get_idf("when"))
-//    println("nude " + get_idf("nude"))
-//    println("of " + get_idf("of"))
-
-    generateTable
-
-        println(trainingMatrix(1)(0))
-//    trainingMatrix.foreach(entry => println(entry._2))
-
-
-
-  }
-
-  def writeTable(output: String) = {
-
-    // toDo
-
-  }
-
-  def fill_dfMap = {
-    //        // keep track of the occurences of a term in the total document collection
-    //        // and update the state
-    indexMap.foreach(entry => docFreqMap.put(entry._1, 0))
-
-    for((docid, vectors) <- inverted){
-      for(term <- vectors.keySet){
-        docFreqMap(term) = docFreqMap(term) +1
       }
     }
 
-  }
-
-
-  def generateTable = {
-
-    for((label, docSet) <- label2Docs){
-      val labelNum = newsgroupMap(label)
-      // for each label class we initialize
-      //      trainingMatrix.put(labelNum, scala.collection.immutable.SortedMap[Int, Double]())
-
-
-      val tmp = List[List[(Int, Double)]]()
-      //initialize
-      trainingMatrix.put(labelNum, tmp)
-
-      // going through the relevent docids for that class
-      for(docid <- docSet){
-        //      for(docid <- label2Docs(inversedNewsgroupMap(1))){
-
-        var featureList = List[(Int, Double)]()
-
-        for((term, tf) <- inverted(docid)){
-
-          val indexNum = indexMap(term)
-          val value = tf * get_idf(term)
-          featureList = featureList :+ (indexNum, value)
-        }
-        trainingMatrix(labelNum) = trainingMatrix(labelNum) :+ featureList.sortBy(_._1)
-
-      }
-    }
+    fill_dfMap()
+    generateTable()
+    writeTable(output)
 
   }
 
 
-  def inverseIndexMap = {
-    indexMap.map({case(k, v) => v -> k})
-  }
-
-  def inverseNewsgroupMap = {
-    newsgroupMap.map({case(k, v) => v -> k})
-  }
 
   /**
-    * Returns IDF score of a given term
-    * @param term
-    * @return IDF score
+    * Method which reads in files of given directory recursively.
+    * @param input_directory
+    * @return Array of all files contained in directory.
     */
-  def get_idf(term: String): Double = {
-    val N = inverted.size
-    val n_i = docFreqMap(term)
-    math.log(N/n_i)
+  def read_dir(input_directory: String): Array[File] = {
+    val folders = new java.io.File(input_directory).listFiles
+    folders
   }
+
+
+  /**
+    * Creates a folder to Integer mapping
+    * @param folder of input directory
+    */
+  def label2num(folder: File): String = {
+    val label = folder.getName
+    newsgroupMap = newsgroupMap + (label -> labelNum)
+    labelNum += 1
+    label
+  }
+
+
+  def label2docs(f: File, label: String): Int = {
+
+    val docID = f.getName.replace(".conll", "").toInt
+
+    //remember which documents correspond to which label
+    if(!label2Docs.contains(label))
+      label2Docs.put(label, Set(docID))
+    else label2Docs(label) += docID
+    docID
+  }
+
 
   /**
     * Reads input file and separates at tabs
@@ -205,12 +113,40 @@ object TopicClassificator {
       .map(line => line.split("\t"))
     lines
   }
+
+
+  /**
+    *
+    */
+  def fill_dfMap(): Unit = {
+    //keeping track of term occurrences all documents
+    indexMap.foreach(entry => docFreqMap.put(entry._1, 0))
+
+    for((docid, vectors) <- inverted) {
+      for(term <- vectors.keySet)
+        docFreqMap(term) = docFreqMap(term) +1
+    }
+  }
+
+
+  /**
+    * Returns IDF score of a given term
+    * @param term
+    * @return IDF score
+    */
+  def get_idf(term: String): Double = {
+    val N = inverted.size
+    val n_i = docFreqMap(term)
+    math.log(N/n_i)
+  }
+
+
   /**
     * Fills a HashMap which maps type of word to document identifier.
     * @param lines: Iterator over an array of strings
     */
-  def createIndices(lines: Iterator[Array[String]],
-                    doc_id: Int, label: String) = {
+  def createIndices(lines: Iterator[Array[String]], doc_id: Int, label: String): Unit = {
+
     for (line <- lines) {
       if (line.length > 1) {
         val term = line(2)
@@ -243,6 +179,77 @@ object TopicClassificator {
     }
   }
 
+
+  /**
+    *
+    */
+  def generateTable(): Unit = {
+
+    for((label, docSet) <- label2Docs){
+      val labelNum = newsgroupMap(label)
+      // for each label class we initialize
+      //      trainingMatrix.put(labelNum, scala.collection.immutable.SortedMap[Int, Double]())
+
+
+      val tmp = List[List[(Int, Double)]]()
+      //initialize
+      trainingMatrix.put(labelNum, tmp)
+
+      // going through the relevent docids for that class
+      for(docid <- docSet){
+
+        var featureList = List[(Int, Double)]()
+
+        for((term, tf) <- inverted(docid)){
+
+          val indexNum = indexMap(term)
+          val value = tf * get_idf(term)
+          featureList = featureList :+ (indexNum, value)
+        }
+        trainingMatrix(labelNum) = trainingMatrix(labelNum) :+ featureList.sortBy(_._1)
+
+      }
+    }
+
+  }
+
+
+  /**
+    *
+    * @param output
+    */
+  def writeTable(output: String): Unit = {
+
+    println("Writing training file...")
+
+    val pw = new PrintWriter(new File(output))
+
+    for ((classLabel, instances) <- trainingMatrix) {
+
+      for (instance <- instances) {
+        pw.write(classLabel + " ")
+        var dummy = ""
+        for ((index, value) <- instance) {
+          dummy += index + ":" + value + " "
+        }
+        pw.write(dummy.trim() + "\n")
+      }
+    }
+    pw.close()
+
+    println("Done!")
+  }
+
+
+  /**
+    * Help function for correct usage
+    */
+  def help() = {
+    println("Usage: ./wildcard arg1 arg2")
+    println("\t\targ1: INPUT  - filename of a text file containing a word list")
+    println("\t\targ2: OUTPUT - filename of a text file containing a word list")
+    sys.exit()
+  }
 
 
 }
