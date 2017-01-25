@@ -8,8 +8,9 @@ Document Topic Classification by SVM.
 
 **Usage:**
 ```
-./topic-classificator arg1
-    INPUT - input files seperated by folders 
+./topic-classificator arg1 arg2
+    INPUT - directory with files to train
+    OUTPUT - file in liblinear format for SVM training
 ``` 
   
   
