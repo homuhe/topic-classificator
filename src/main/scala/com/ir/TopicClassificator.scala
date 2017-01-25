@@ -1,7 +1,7 @@
 package com.ir
 
 import java.io.File
-import java.util
+import java.io._
 
 import scala.collection.mutable
 import scala.io.Source
@@ -37,7 +37,7 @@ object TopicClassificator {
 
   // map from word/term to corresponding index number required for liblinear
   var indexMap = scala.collection.immutable.SortedMap[String, Int]()
-  var indexNum = 0
+  var indexNum = 1
   var inversedNewsgroupMap = scala.collection.immutable.SortedMap[Int, String]()
   /**
     * Main method
@@ -121,12 +121,32 @@ object TopicClassificator {
 
 
 
+    writeTable("TEST")
   }
 
   def writeTable(output: String) = {
+    val pw = new PrintWriter(new File(output))
 
-    // toDo
+    println("number of classes: " + trainingMatrix.size)
+    for((classLabel, instances) <- trainingMatrix){
 
+
+
+      println("number of instances: " + instances.size)
+      for(instance <- instances){
+
+        pw.write(classLabel + " ")
+        var dummy = ""
+        for((index, value) <- instance){
+          dummy += index + ":" + value + " "
+        }
+//
+//
+        pw.write(dummy.trim()+  "\n")
+
+      }
+    }
+    pw.close
   }
 
   def fill_dfMap = {
